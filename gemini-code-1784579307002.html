@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blox Fruit DOM RPG</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #121216;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    #ui-bar {
+      width: 800px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e1e28;
+      padding: 12px 20px;
+      border-radius: 8px 8px 0 0;
+      border: 2px solid #333344;
+      border-bottom: none;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .stat-group {
+      display: flex;
+      gap: 20px;
+    }
+    #game-arena {
+      position: relative;
+      width: 800px;
+      height: 480px;
+      background-color: #2b7a3a;
+      background-image: 
+        linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+      border: 2px solid #333344;
+      border-radius: 0 0 8px 8px;
+      overflow: hidden;
+      cursor: crosshair;
+    }
+    #player {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      background-color: #00d2ff;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+      z-index: 10;
+      transform: translate(-50%, -50%);
+    }
+    #sword {
+      position: absolute;
+      right: -18px;
+      top: 14px;
+      width: 22px;
+      height: 4px;
+      background-color: #ffffff;
+      border-radius: 2px;
+    }
+    .enemy {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      background-color: #e91e63;
+      border-radius: 50%;
+      border: 2px solid #ff80ab;
+      z-index: 5;
+      transform: translate(-50%, -50%);
+    }
+    .hp-bar-bg {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 4px;
+      background-color: #aa0000;
+      border-radius: 2px;
+    }
+    .hp-bar-fill {
+      width: 100%;
+      height: 100%;
+      background-color: #00ff00;
+      border-radius: 2px;
+    }
+    .fireball {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background-color: #ff5722;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #ff9800;
+      z-index: 8;
+      transform: translate(-50%, -50%);
+    }
+    .slash {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 50% 50%);
+      z-index: 9;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #game-over {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+    .controls-bar {
+      margin-top: 15px;
+      color: #aaa;
+      font-size: 14px;
+      text-align: center;
+    }
+    .key {
+      background: #333;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="ui-bar">
+    <div class="stat-group">
+      <div>Level: <span id="lvl" style="color: #4caf50;">1</span></div>
+      <div>Beli: $<span id="beli" style="color: #ffeb3b;">0</span></div>
+      <div>Fruit: <span style="color: #ff9800;">Flame</span></div>
+    </div>
+    <div class="stat-group">
+      <div>HP: <span id="hpText">100/100</span></div>
+    </div>
+  </div>
+
+  <div id="game-arena">
+    <div id="player">
+      <div id="sword"></div>
+    </div>
+
+    <div id="game-over">
+      <h1 style="color: #ff3333; font-size: 40px; margin-bottom: 10px;">YOU DIED</h1>
+      <p style="color: #ffffff; font-size: 18px;">Press <span class="key">R</span> to Respawn</p>
+    </div>
+  </div>
+
+  <div class="controls-bar">
+    <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> Move | 
+    <span class="key">Left Click</span> Sword Slash | 
+    <span class="key">Z</span> or <span class="key">Space</span> Flame Blast
+  </div>
+
+  <script>
+    const arena = document.getElementById('game-arena');
+    const playerEl = document.getElementById('player');
+    const gameOverEl = document.getElementById('game-over');
+    const lvlDisplay = document.getElementById('lvl');
+    const beliDisplay = document.getElementById('beli');
+    const hpTextDisplay = document.getElementById('hpText');
+
+    let level = 1;
+    let beli = 0;
+    let isGameOver = false;
+
+    const player = {
+      x: 400,
+      y: 240,
+      radius: 18,
+      speed: 4,
+      hp: 100,
+      maxHp: 100,
+      angle: 0
+    };
+
+    const keys = {};
+    const enemies = [];
+    const projectiles = [];
+
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if ((e.code === 'Space' || e.code === 'KeyZ') && !isGameOver) {
+        useSkill();
+      }
+      if (e.code === 'KeyR' && isGameOver) {
+        restartGame();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    let mouseX = 400;
+    let mouseY = 240;
+    arena.addEventListener('mousemove', (e) => {
+      const rect = arena.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+
+    arena.addEventListener('mousedown', (e) => {
+      if (e.button === 0 && !isGameOver) {
+        attack();
+      }
+    });
+
+    function spawnEnemy() {
+      if (enemies.length < 5 && !isGameOver) {
+        const side = Math.floor(Math.random() * 4);
+        let x, y;
+        if (side === 0) { x = Math.random() * 800; y = -20; }
+        else if (side === 1) { x = 820; y = Math.random() * 480; }
+        else if (side === 2) { x = Math.random() * 800; y = 500; }
+        else { x = -20; y = Math.random() * 480; }
+
+        const el = document.createElement('div');
+        el.className = 'enemy';
+
+        const hpBg = document.createElement('div');
+        hpBg.className = 'hp-bar-bg';
+        const hpFill = document.createElement('div');
+        hpFill.className = 'hp-bar-fill';
+        hpBg.appendChild(hpFill);
+        el.appendChild(hpBg);
+
+        arena.appendChild(el);
+
+        enemies.push({
+          x: x,
+          y: y,
+          radius: 16,
+          hp: 40 + (level * 5),
+          maxHp: 40 + (level * 5),
+          speed: 1.6,
+          el: el,
+          hpFill: hpFill
+        });
+      }
+    }
+    setInterval(spawnEnemy, 1400);
+
+    function attack() {
+      const slashAngle = Math.atan2(mouseY - player.y, mouseX - player.x);
+
+      const slashEl = document.createElement('div');
+      slashEl.className = 'slash';
+      slashEl.style.left = (player.x + Math.cos(slashAngle) * 30) + 'px';
+      slashEl.style.top = (player.y + Math.sin(slashAngle) * 30) + 'px';
+      slashEl.style.transform = `translate(-50%, -50%) rotate(${slashAngle}rad)`;
+      arena.appendChild(slashEl);
+
+      setTimeout(() => slashEl.remove(), 120);
+
+      enemies.forEach((enemy) => {
+        const dist = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+        if (dist < 65) {
+          enemy.hp -= 20;
+          enemy.x += Math.cos(slashAngle) * 20;
+          enemy.y += Math.sin(slashAngle) * 20;
+        }
+      });
+    }
+
+    function useSkill() {
+      const angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+      const el = document.createElement('div');
+      el.className = 'fireball';
+      arena.appendChild(el);
+
+      projectiles.push({
+        x: player.x,
+        y: player.y,
+        vx: Math.cos(angle) * 9,
+        vy: Math.sin(angle) * 9,
+        radius: 12,
+        life: 60,
+        el: el
+      });
+    }
+
+    function restartGame() {
+      level = 1;
+      beli = 0;
+      player.hp = 100;
+      player.x = 400;
+      player.y = 240;
+      
+      enemies.forEach(e => e.el.remove());
+      enemies.length = 0;
+      projectiles.forEach(p => p.el.remove());
+      projectiles.length = 0;
+
+      isGameOver = false;
+      gameOverEl.style.display = 'none';
+      lvlDisplay.innerText = level;
+      beliDisplay.innerText = beli;
+    }
+
+    function gameLoop() {
+      requestAnimationFrame(gameLoop);
+
+      if (!isGameOver) {
+        if (keys['KeyW'] || keys['ArrowUp']) player.y -= player.speed;
+        if (keys['KeyS'] || keys['ArrowDown']) player.y += player.speed;
+        if (keys['KeyA'] || keys['ArrowLeft']) player.x -= player.speed;
+        if (keys['KeyD'] || keys['ArrowRight']) player.x += player.speed;
+
+        player.x = Math.max(player.radius, Math.min(800 - player.radius, player.x));
+        player.y = Math.max(player.radius, Math.min(480 - player.radius, player.y));
+
+        player.angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+
+        playerEl.style.left = player.x + 'px';
+        playerEl.style.top = player.y + 'px';
+        playerEl.style.transform = `translate(-50%, -50%) rotate(${player.angle}rad)`;
+      }
+
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+
+        p.el.style.left = p.x + 'px';
+        p.el.style.top = p.y + 'px';
+
+        enemies.forEach((enemy) => {
+          const dist = Math.hypot(p.x - enemy.x, p.y - enemy.y);
+          if (dist < p.radius + enemy.radius) {
+            enemy.hp -= 35;
+            p.life = 0;
+          }
+        });
+
+        if (p.life <= 0) {
+          p.el.remove();
+          projectiles.splice(i, 1);
+        }
+      }
+
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
+
+        if (!isGameOver) {
+          const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+          enemy.x += Math.cos(angle) * enemy.speed;
+          enemy.y += Math.sin(angle) * enemy.speed;
+
+          const distToPlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+          if (distToPlayer < player.radius + enemy.radius) {
+            player.hp -= 0.5;
+            if (player.hp <= 0) {
+              player.hp = 0;
+              isGameOver = true;
+              gameOverEl.style.display = 'flex';
+            }
+          }
+        }
+
+        enemy.el.style.left = enemy.x + 'px';
+        enemy.el.style.top = enemy.y + 'px';
+        enemy.hpFill.style.width = Math.max(0, (enemy.hp / enemy.maxHp) * 100) + '%';
+
+        if (enemy.hp <= 0) {
+          enemy.el.remove();
+          enemies.splice(i, 1);
+          beli += 25;
+          level += 1;
+          beliDisplay.innerText = beli;
+          lvlDisplay.innerText = level;
+        }
+      }
+
+      hpTextDisplay.innerText = `${Math.ceil(player.hp)}/${player.maxHp}`;
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
